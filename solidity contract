@@ -1,0 +1,57 @@
+// SPDX-License-Identifier:MIT;
+pragma solidity ^0.8.0;
+
+contract zulutrust {
+    address payable public buyer;
+    address payable public seller;
+    address public zuluagent;
+    uint public price;
+    bool public buyerApproval;
+    bool public sellerApproval;
+    
+    constructor(address payable _buyer, address payable _seller, address _zuluagent, uint _price) {
+        buyer = _buyer;
+        seller = _seller;
+        zuluagent = _zuluagent;
+        price = _price;
+    }
+    
+    function approveByBuyer() public {
+        require(msg.sender == buyer, "Only buyer can approve the transaction.");
+        buyerApproval = true;
+        if (sellerApproval) {
+            releasePayment();
+        }
+    }
+    
+    function approveBySeller() public {
+        require(msg.sender == seller, "Only seller can approve the transaction.");
+        sellerApproval = true;
+        if (buyerApproval) {
+            releasePayment();
+        }
+    }
+    
+    function releasePayment() private {
+        require(address(this).balance >= price, "Insufficient balance.");
+        if (address(this).balance > price) {
+            uint refund = address(this).balance - price;
+            buyer.transfer(refund);
+        }
+        seller.transfer(price);
+    }
+    function dispute() public {
+        require(msg.sender == zuluagent, "Only zuluagent can resolve issues encountred.");
+        require(!buyerApproval || !sellerApproval, "Payment has already been released.");
+        if (buyerApproval && !sellerApproval) {
+            seller.transfer(address(this).balance);
+        } else if (sellerApproval && !buyerApproval) {
+            buyer.transfer(address(this).balance);
+        }
+    }
+    
+    function deposit() public payable {
+        require(msg.sender == buyer, "Only buyer can deposit.");
+        require(msg.value == price, "Deposit amount must be equal to the price.");
+    }
+}
